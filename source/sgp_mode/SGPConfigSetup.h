@@ -24,7 +24,8 @@ EMP_EXTEND_CONFIG(SymConfigSGP, SymConfigBase,
   VALUE(MUTUALIST_DEATH_CHANCE, double, 0.125, "What death chance does a mutualist confer?"),
   VALUE(BASE_DEATH_CHANCE, double, 0.25, "What death chance does a host have in the absence of symbionts?"),
   VALUE(CPU_TRANSFER_CHANCE, double, 0.5, "What is the chance for cycles to be stolen/donated?"),
-  VALUE(ONLY_FIRST_TASK_CREDIT, int, 0, "Should symbionts only get credit for their first task")
+  VALUE(ONLY_FIRST_TASK_CREDIT, int, 0, "Should symbionts only get credit for their first task"),
+  // VALUE(NUTRIENT_DONATE_STEAL_PROP, double, 0.5, "What proportion of points should a symbiont donate to its host and what proportion of points should a symbiont steal from its host based on the stress type")
 
 )
 

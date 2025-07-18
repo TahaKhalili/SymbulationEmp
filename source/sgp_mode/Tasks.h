@@ -3,6 +3,8 @@
 
 #include "../default_mode/SymWorld.h"
 #include "CPUState.h"
+// #include "SGPWorld.h"
+// #include "SGPConfigSetup.h"
 #include <atomic>
 #include <string>
 
@@ -127,11 +129,43 @@ class TaskSet {
     //  //Half points if they did the task before, pushing them to do more tasks instead of cycling
     //  score = score/2.0;
     //}
-    if (state.organism->IsHost()){
-      score = state.world.Cast<SymWorld>()->PullResources(score);
-    }
+    // emp::Ptr<SymConfigSGP> sgp_config = state.world->GetConfig();
+    emp::Ptr<SymConfigSGP> sgp_config = state.organism->GetConfig();
+
     if (score == 0.0) {
       return score;
+    }
+
+    if (!state.organism->IsHost() && sgp_config->ORGANISM_TYPE() == 1){ //change this (1 is for Health, 3 for nutrients?)
+      emp::Ptr<Organism> host_ptr = state.organism->GetHost();
+      if (host_ptr) { //assert host pointer, there always should be a host pointer
+        emp::Ptr<SGPHost> sgp_host_ptr = host_ptr.DynamicCast<SGPHost>();
+        if (sgp_host_ptr) { //get rid of this
+          SGPHost& host = *sgp_host_ptr;
+          CPUState& host_state = host.GetCPU().state;
+
+          // If host has performed this task before
+          bool host_performed = host_state.GetParentTaskPerformed(task_id);
+          int nutrient_type = sgp_config->STRESS_TYPE();
+
+          if (nutrient_type == 1  && host_performed) { //Parasite
+            double to_steal = sgp_config->NUTRIENT_DONATE_STEAL_PROP() * score;
+            double from_host = emp::Min(host.GetPoints(), to_steal);
+            host.AddPoints(-from_host); // Subtract points from host
+            score; // Sym gets all points
+          }
+          else if (nutrient_type == 0 && host_performed) { //Mutualist //host performed for donate instead!
+            double to_donate =
+              sgp_config->NUTRIENT_DONATE_STEAL_PROP() * score;
+            host.AddPoints(to_donate);
+            score -= to_donate; // sym gets remainder
+          }
+        }
+      }
+    }
+
+    if (state.organism->IsHost()){
+      score = state.world.Cast<SymWorld>()->PullResources(score);
     }
 
     tasks[task_id]->MarkPerformed(state, output, task_id, shared);
@@ -141,8 +175,6 @@ class TaskSet {
     else{
       ++*n_succeeds_sym[task_id];
     }
-      
-
     return score;
   }
 
