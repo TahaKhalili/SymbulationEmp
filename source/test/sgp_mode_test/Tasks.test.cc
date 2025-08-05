@@ -52,10 +52,8 @@ TEST_CASE("When only first task credit is on","[sgp]"){
       }
     }
 }
-//TODO: tasks -> Tasks for folder name and test name (Task.integration.test.cc)
-// MOVE program builder outside of WHEN to cut down replications
-// Move CPU cycles from THEN to WHEN
-TEST_CASE("Task completion scoring and marking", "[sgp]") {
+
+TEST_CASE("Task integration scoring and marking", "[sgp]") {
   emp::Random random(1);
   SymConfigSGP config;
   config.SEED(1);
@@ -63,25 +61,25 @@ TEST_CASE("Task completion scoring and marking", "[sgp]") {
   config.MUTATION_SIZE(0.002);
   config.TRACK_PARENT_TASKS(1);
   config.VT_TASK_MATCH(1);
+  SGPWorld world(random, &config, LogicTasks);
+  
+  // multiple tasks
+  ProgramBuilder multi_task_program;
+  multi_task_program.AddNot();
+  multi_task_program.AddNand();
+  multi_task_program.AddAnd();
+
+  emp::Ptr<SGPHost> host = emp::NewPtr<SGPHost>(&random, &world, &config, multi_task_program.Build(100));
+  world.AddOrgAt(host, 0);
 
   WHEN("OnlyFirstTaskCredit is OFF") {
     config.ONLY_FIRST_TASK_CREDIT(0);
-    SGPWorld world(random, &config, LogicTasks);
-
-    // multiple tasks
-    ProgramBuilder multi_task_program;
-    multi_task_program.AddNot();
-    multi_task_program.AddNand();
-    multi_task_program.AddAnd();
-
-    emp::Ptr<SGPHost> host = emp::NewPtr<SGPHost>(&random, &world, &config, multi_task_program.Build(100));
-    world.AddOrgAt(host, 0);
 
     THEN("Should receive score when task completed") {
       int initial_points = host->GetPoints();
       host->GetCPU().RunCPUStep(0, 100);
       
-      // Get points for alltasks
+      // Get points for all tasks
       REQUIRE(host->GetPoints() > initial_points);
     }
 
@@ -99,29 +97,18 @@ TEST_CASE("Task completion scoring and marking", "[sgp]") {
 
   WHEN("OnlyFirstTaskCredit is ON") {
     config.ONLY_FIRST_TASK_CREDIT(1);
-    SGPWorld world(random, &config, LogicTasks);
 
-    // Program with multiple tasks
-    ProgramBuilder multi_task_program;
-    multi_task_program.AddNot();
-    multi_task_program.AddNand();
-    multi_task_program.AddAnd();
-
-    emp::Ptr<SGPHost> host = emp::NewPtr<SGPHost>(&random, &world, &config, multi_task_program.Build(100));
-    world.AddOrgAt(host, 0);
+    int initial_points = host->GetPoints();
+    host->GetCPU().RunCPUStep(0, 100);
 
     THEN("Should receive score when task completed if it is first task") {
-      int initial_points = host->GetPoints();
-      host->GetCPU().RunCPUStep(0, 100);
       
       // Points for first task only
       REQUIRE(host->GetPoints() == initial_points + 5);
     }
 
     THEN("Should not receive score when task completed if it is not first task") {
-      // First for first task
-      host->GetCPU().RunCPUStep(0, 100);
-      int points_after_first = host->GetPoints(); //change points after task --> 10
+      int points_after_first = host->GetPoints();
       
       // Second run (should not get points)
       host->GetCPU().RunCPUStep(0, 100);
@@ -130,7 +117,6 @@ TEST_CASE("Task completion scoring and marking", "[sgp]") {
     }
 
     THEN("Should mark task completed when it is first task") {
-      host->GetCPU().RunCPUStep(0, 100);
       
       // exactly one task is marked complete
       int tasks_completed = 0;
@@ -142,7 +128,6 @@ TEST_CASE("Task completion scoring and marking", "[sgp]") {
 
     THEN("Should not mark task completed when it is not first task") {
       // First run
-      host->GetCPU().RunCPUStep(0, 100);
       int tasks_completed_first = 0;
       for (int i = 0; i < CPU_BITSET_LENGTH; i++) {
         tasks_completed_first += host->GetCPU().state.tasks_performed->Get(i);
@@ -172,13 +157,14 @@ TEST_CASE("IsOnlyTask functionality", "[sgp]") {
 
   SGPWorld world(random, &config, LogicTasks);
 
-  WHEN("No tasks have been completed yet") {
-    ProgramBuilder multi_task_program;
-    multi_task_program.AddNot();
-    multi_task_program.AddNand();
+  ProgramBuilder multi_task_program;
+  multi_task_program.AddNot();
+  multi_task_program.AddNand();
     
-    emp::Ptr<SGPHost> host = emp::NewPtr<SGPHost>(&random, &world, &config, multi_task_program.Build(100));
-    world.AddOrgAt(host, 0);
+  emp::Ptr<SGPHost> host = emp::NewPtr<SGPHost>(&random, &world, &config, multi_task_program.Build(100));
+  world.AddOrgAt(host, 0);
+
+  WHEN("No tasks have been completed yet") {
 
     THEN("IsOnlyTask should return true for first task") {
       // Simulate completing the first task (NOT)
@@ -192,12 +178,6 @@ TEST_CASE("IsOnlyTask functionality", "[sgp]") {
   }
 
   WHEN("One task has already been completed") {
-    ProgramBuilder multi_task_program;
-    multi_task_program.AddNot();
-    multi_task_program.AddNand();
-    
-    emp::Ptr<SGPHost> host = emp::NewPtr<SGPHost>(&random, &world, &config, multi_task_program.Build(100));
-    world.AddOrgAt(host, 0);
 
     THEN("IsOnlyTask should return false for second task") {
       // Mark first task as completed
